@@ -1,3 +1,14 @@
+---
+title: LYAQA Nutrition AI
+emoji: 🥗
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+base_path: /docs
+short_description: Arabic and English nutrition AI service
+---
+
 # Nutrition AI Service
 
 A stateless FastAPI service for Arabic and English nutrition conversations.
@@ -55,6 +66,9 @@ on first use.
 ```
 
 Open [Swagger](http://127.0.0.1:8001/docs).
+
+For the CPU Docker image, build/run commands, model caching, and local
+verification, see [the deployment guide](docs/deployment.md).
 
 | Method | Path | Purpose |
 | --- | --- | --- |

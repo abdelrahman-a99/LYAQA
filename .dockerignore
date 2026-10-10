@@ -1,0 +1,20 @@
+# Include only files needed by the runtime image.
+**
+!Dockerfile
+!requirements.txt
+!app/
+!app/**
+!data/
+!data/knowledge_base/
+!data/knowledge_base/**
+!artifacts/
+!artifacts/rag/
+!artifacts/rag/faiss_index.bin
+!artifacts/rag/chunks.json
+
+# Exclude local files even inside included directories.
+**/__pycache__/
+**/*.py[cod]
+**/.env
+**/.env.*
+**/*.log
