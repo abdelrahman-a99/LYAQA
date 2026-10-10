@@ -41,6 +41,7 @@ All handlers are in `agent/flows/`.
 | `fitness_nutrition_question`, `food_substitution` | `knowledge.py: handle_rag_flow` | Knowledge retrieval followed by grounded answer generation. |
 | `meal_recommendation` | `meals.py: handle_meal_recommendation` | Determine target, generate foods, retrieve nutrition, validate and revise. |
 | `daily_plan` | `daily.py: handle_daily_plan` | Calculate daily targets, generate four meals, validate daily totals. |
+| `meal_edit` | `meal_edits.py: handle_meal_edit` | Select a previous meal, apply indexed changes, retrieve, calculate, and validate. |
 
 The `calculate_macros` intent reports macros for the supplied foods. The separate
 `nutrition/profile.py: calculate_macros()` function computes profile-based daily
@@ -162,7 +163,7 @@ adds the current user message and serialized parsing result to its local history
 The HTTP layer discards that instance after the request.
 
 The returned `AssistantResponse` contains `response`, `intent`, `status`,
-`language`, `profile`, and `revision_count`. The profile is a snapshot.
+`language`, `profile`, `revision_count`, and `meals`. The profile is a snapshot.
 
 The calling backend owns accounts, conversations, and durable storage.
 It saves the user message, final response, and approved profile changes, then
@@ -172,7 +173,43 @@ Before parsing, the orchestrator snapshots the last six prior user/assistant
 messages for answer generation. This excludes the current turn's parser JSON
 and avoids appending the current user message twice.
 General-chat generation, RAG question resolution, and RAG answer generation
-receive that snapshot. Structured meal recall remains separate work.
+receive that snapshot.
+
+`conversation/meals.py: build_meal_snapshot()` copies final candidates after
+revision and scaling into `state.meals`. `contracts/meal_memory.py` defines the
+HTTP schema. A snapshot includes a new UUID, final foods and quantities,
+calculated nutrition and conversion sources, meal targets, violations, and
+partial lookup failures. It is valid only when the flow, validation report,
+and calculation succeed without missing food data. Failed generation yields
+no snapshot; an invalid generated candidate retains its failed checks.
+
+A daily response contains at most four snapshots. Missing meals are omitted,
+and per-meal validity does not certify day completeness or daily targets.
+Per-turn reset and unexpected-error handling clear snapshot output.
+The chatbot backend validates and stores the latest nonempty batch as
+`last_meals`; empty batches leave it unchanged. This storage is in memory.
+The optional request field `meal_context` supplies up to four previous meal
+snapshots with unique IDs. The HTTP layer serializes and copies these into
+`state.meal_context`. Turn reset preserves this input while clearing current
+`state.meals` output. A request without context starts with an empty list.
+The `meal_edit` flow selects one supplied meal, applies indexed changes, then
+retrieves and recalculates every ingredient in that meal. Supplied nutrition is
+not the source of fresh calculations. The original calorie target is retained
+unless the current request supplies a new target; the saved protein floor and
+current profile restrictions are checked. There is no automatic scaling or
+nutritional revision loop in this flow.
+
+On valid edits, the original meal ID is retained and `meals` contains the entire
+supplied group with one updated meal. Other snapshots remain unchanged; the
+whole day is not revalidated. Missing context, ambiguity, failures, and rejected
+edits return empty meal output so the backend retains its previous group.
+Rejected edits include calculated values and validation reasons in the text.
+
+Selection and change prompts are in `agent/meal_edit_prompts.py`; provider calls
+and Pydantic validation are in `agent/meal_edit_llm.py`.
+`conversation/meal_edits.py` applies changes against original food indices,
+rejecting duplicates, invalid indices, empty meals, and oversized results.
+`presentation/meal_edits.py` formats calculated results and rejection reasons.
 
 ## 8. Evaluation boundaries
 
@@ -202,7 +239,8 @@ Run from the repository root:
 | POST | `/v1/chat` | Process a message with optional profile and prior history. |
 | GET | `/docs` | Interactive Swagger documentation. |
 
-The request accepts `message`, optional `profile`, and optional `history`.
+The request accepts `message`, optional `profile`, optional `history`,
+and optional `meal_context`.
 History contains prior messages with `role` equal to `user` or `assistant`,
 and a text `content`. Exclude the current message from history.
 Partial profiles are supported.
@@ -212,13 +250,12 @@ with at most 10000 characters each; the existing parser uses only the last six.
 Invalid request data returns 422 before parsing.
 
 The response contains `response`, `intent`, `status`, `language`, `profile`,
-and `revision_count`. No conversation ID or transcript is stored or returned.
+`revision_count`, and `meals`. No conversation ID or transcript is stored or returned.
 Requests with no supplied context start fresh.
 
-History currently reaches NLP parsing only. General-chat and RAG answer
-composition still use their existing inputs. Structured meal recall, complete
-answer-generation context, service authentication, and replay-safe processing
-are separate future work.
+History reaches NLP parsing, general-chat generation, RAG question resolution,
+RAG answer generation, and meal-edit selection/change generation.
+Service authentication and replay-safe processing remain future work.
 
 HTTP 200 does not certify a valid meal or a successful model call.
 Existing response text and metadata can describe a failure or invalid proposal.

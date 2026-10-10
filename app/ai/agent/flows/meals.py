@@ -6,6 +6,7 @@ from app.ai.agent.llm import call_meal_generation
 from app.ai.agent.revision import run_revision_loop
 from app.ai.agent.state import AgentState
 from app.ai.agent.tools import calculate_targets
+from app.ai.conversation.meals import build_meal_snapshot
 from app.ai.nutrition.profile import calculate_protein_target
 from app.ai.presentation.responses import format_meal_recommendation_response
 from app.ai.presentation.validation import validate_meal_nutrition_report
@@ -137,6 +138,10 @@ def handle_meal_recommendation(
         if language == "arabic":
             return f"لم أتمكن من إنشاء وجبة: {flow.get('error', '')}"
         return f"Could not generate a meal: {flow.get('error', '')}"
+
+    snapshot = build_meal_snapshot(flow, target_calories, meal_type, min_protein_g)
+    if snapshot is not None:
+        state.meals.append(snapshot)
 
     return format_meal_recommendation_response(
         flow, target_calories, language, flow["valid"]

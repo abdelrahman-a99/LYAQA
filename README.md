@@ -79,11 +79,39 @@ Example request:
 ```
 
 The response contains `response`, `intent`, `status`, `language`, `profile`,
-and `revision_count`. The backend persists accepted profile changes
+`revision_count`, and `meals`. The backend persists accepted profile changes
 and messages.
+
+`meals` contains up to four final meal candidates, copied from calculation results.
+Each snapshot includes an ID, ingredients and quantities, calculated nutrition,
+calorie and protein targets, validation violations, and partial lookup failures.
+The calculated food details retain quantity-conversion sources.
+A generated candidate can have `valid: false`; an unsuccessful generation produces
+no snapshot. For daily plans, validity is per meal, not a guarantee of a complete
+or valid day. Successful edits return the complete supplied meal group with
+one updated meal and its original ID; unrelated turns return `meals: []`.
 
 History contains prior user/assistant messages with `role` and `content`,
 excluding the current message. Each request creates a fresh assistant.
+
+The optional `meal_context` field accepts up to four previously returned meal
+snapshots with distinct IDs. The backend supplies its conversation's `last_meals`
+through this field. Omit it or send `[]` when no meals are available.
+Meal context is separate from text history and current-turn `meals` output.
+An explicit `meal_edit` request selects one previous meal and applies validated
+food changes. It retrieves and recalculates all ingredients of the edited meal;
+supplied nutrient values are not used as the source of fresh calculations.
+The original calorie target and protein minimum are preserved unless the current
+message explicitly supplies a new calorie target. Current profile restrictions
+are checked. Other meals are returned unchanged, not revalidated as a full day.
+
+Selection ambiguity returns `needs_clarification`; missing context returns
+`needs_meal_context`; model, lookup, or calculation failure returns
+`meal_edit_failed`. Failed validation returns `meal_edit_rejected` with calculated
+values and reasons in the text. These paths return `meals: []`, preserving the
+backend's previous group. A valid edit returns the complete updated group with
+the edited meal's original ID. Editing is one attempt without automatic scaling
+or nutritional revisions, preserving explicitly requested quantities.
 
 Messages are limited to 4000 characters. History accepts 20 entries of up
 to 10000 characters each; the parser uses only the last six entries.
@@ -93,7 +121,9 @@ When history is present, RAG first resolves the current request into a standalon
 search question using an additional Groq call. Unclear references trigger a
 clarification request; resolution failures ask the caller to retry.
 Retrieved passages remain the source for factual RAG answers.
-Structured meal recall, durable memory, and service authentication remain future work.
+The chatbot backend keeps the latest nonempty meal batch per conversation.
+An empty batch preserves the previous one. Durable storage and service
+authentication remain future work.
 
 Invalid request data returns 422. HTTP 200 does not certify a valid meal
 or a successful model call; inspect the response and metadata.

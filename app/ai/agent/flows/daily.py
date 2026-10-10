@@ -2,6 +2,7 @@ from app.ai.agent.constants import MEAL_SPLITS
 from app.ai.agent.flows.meals import meal_recommendation_flow
 from app.ai.agent.state import AgentState
 from app.ai.agent.tools import calculate_targets, validate_plan
+from app.ai.conversation.meals import build_meal_snapshot
 from app.ai.presentation.responses import format_daily_plan_response
 from app.ai.presentation.validation import validate_daily_nutrition_report
 
@@ -47,6 +48,9 @@ def handle_daily_plan(profile: dict, language: str, state: AgentState) -> str:
 
         meal_results[meal_name] = flow
         if flow.get("success"):
+            snapshot = build_meal_snapshot(flow, meal_target, meal_name, min_protein_g)
+            if snapshot is not None:
+                state.meals.append(snapshot)
             all_foods += flow.get("foods", [])
             all_nutrition += flow.get("nutrition_list", [])
             partial_failures_all += flow.get("partial_failures", [])

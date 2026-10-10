@@ -5,6 +5,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.ai.contracts.meal_memory import MealSnapshot
+
 
 class HealthResponse(BaseModel):
     status: str
@@ -59,6 +61,15 @@ class ChatRequest(BaseModel):
     message: str = Field(strict=True, min_length=1, max_length=4000)
     profile: ProfileContext | None = None
     history: list[HistoryMessage] = Field(default_factory=list, max_length=20)
+    meal_context: list[MealSnapshot] = Field(default_factory=list, max_length=4)
+
+    @field_validator("meal_context")
+    @classmethod
+    def reject_duplicate_meal_ids(cls, value: list[MealSnapshot]) -> list[MealSnapshot]:
+        identifiers = [meal.meal_id for meal in value]
+        if len(identifiers) != len(set(identifiers)):
+            raise ValueError("meal_context must contain unique meal IDs")
+        return value
 
     @field_validator("message")
     @classmethod
@@ -75,3 +86,4 @@ class ChatResponse(BaseModel):
     language: str
     profile: dict[str, Any]
     revision_count: int
+    meals: list[MealSnapshot] = Field(default_factory=list, max_length=4)

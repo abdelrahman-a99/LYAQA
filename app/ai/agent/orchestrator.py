@@ -7,6 +7,7 @@ from app.ai.agent.flows.calories import handle_calorie_macro_flow
 from app.ai.agent.flows.chat import handle_general_chat
 from app.ai.agent.flows.daily import handle_daily_plan
 from app.ai.agent.flows.knowledge import handle_rag_flow
+from app.ai.agent.flows.meal_edits import handle_meal_edit
 from app.ai.agent.flows.meals import handle_meal_recommendation
 from app.ai.agent.state import AgentState
 from app.ai.agent.tools import parse_query
@@ -48,6 +49,17 @@ def _route_and_answer(message: str, session: NLPSession, state: AgentState) -> s
     meal_type = parsed.get("meal_type")
     target_calories_from_message = parsed.get("target_calories")
     requested_substitution = parsed.get("requested_substitution")
+
+    if intent == "meal_edit":
+        return handle_meal_edit(
+            message,
+            profile,
+            language,
+            history,
+            state,
+            meal_type=meal_type,
+            target_calories=target_calories_from_message,
+        )
 
     # ── general_chat ────────────────────────────────────────────────────────
     if intent == "general_chat":

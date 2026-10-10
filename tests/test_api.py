@@ -69,6 +69,7 @@ def test_message_only_request(client, parser_calls):
         "language",
         "profile",
         "revision_count",
+        "meals",
     }
     assert body["response"] == "Hello"
     assert body["profile"]["weight"] is None

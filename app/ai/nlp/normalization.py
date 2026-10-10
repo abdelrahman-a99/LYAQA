@@ -171,6 +171,7 @@ NON_FOOD_STOP_WORDS = {
 
 
 EMPTY_FOODS_INTENTS = {
+    "meal_edit",
     "meal_recommendation",
     "fitness_nutrition_question",
     "daily_plan",
