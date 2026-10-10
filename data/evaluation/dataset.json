@@ -1,0 +1,396 @@
+{
+  "description": "Task 5 evaluation dataset — 30 labeled examples for intent / NER / food matching / quantity metrics.",
+  "examples": [
+    {
+      "id": 1,
+      "input": "I ate 200g chicken breast",
+      "intent": "calculate_calories",
+      "language": "english",
+      "entities": [
+        ["chicken breast", "FOOD"],
+        ["200", "QUANTITY"],
+        ["gram", "UNIT"]
+      ],
+      "foods": ["chicken breast"],
+      "quantities": [[200.0, "gram"]],
+      "calories_gold": 330.0
+    },
+    {
+      "id": 2,
+      "input": "I had 2 boiled eggs for breakfast",
+      "intent": "calculate_calories",
+      "language": "english",
+      "entities": [
+        ["boiled egg", "FOOD"],
+        ["2", "QUANTITY"],
+        ["piece", "UNIT"],
+        ["breakfast", "MEAL_TYPE"]
+      ],
+      "foods": ["boiled egg"],
+      "quantities": [[2.0, "piece"]],
+      "calories_gold": 155.0
+    },
+    {
+      "id": 3,
+      "input": "Suggest a 400-calorie breakfast without eggs",
+      "intent": "meal_recommendation",
+      "language": "english",
+      "entities": [
+        ["breakfast", "MEAL_TYPE"],
+        ["400", "QUANTITY"],
+        ["eggs", "RESTRICTION"]
+      ],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": 400.0
+    },
+    {
+      "id": 4,
+      "input": "I want a full day meal plan to lose weight",
+      "intent": "daily_plan",
+      "language": "english",
+      "entities": [["weight_loss", "GOAL"]],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 5,
+      "input": "How many calories are in 100g of avocado?",
+      "intent": "food_nutrition",
+      "language": "english",
+      "entities": [
+        ["avocado", "FOOD"],
+        ["100", "QUANTITY"],
+        ["gram", "UNIT"]
+      ],
+      "foods": ["avocado"],
+      "quantities": [[100.0, "gram"]],
+      "calories_gold": 160.0
+    },
+    {
+      "id": 6,
+      "input": "What can I substitute for cheese in my diet?",
+      "intent": "food_substitution",
+      "language": "english",
+      "entities": [["cheese", "FOOD"]],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 7,
+      "input": "What should I eat before a workout?",
+      "intent": "fitness_nutrition_question",
+      "language": "english",
+      "entities": [],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 8,
+      "input": "Hi, what can you do?",
+      "intent": "general_chat",
+      "language": "english",
+      "entities": [],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 9,
+      "input": "I'm 30, male, 80kg, 180cm, active, I want to gain muscle",
+      "intent": "update_profile",
+      "language": "english",
+      "entities": [
+        ["male", "GENDER"],
+        ["80", "WEIGHT"],
+        ["180", "HEIGHT"],
+        ["active", "ACTIVITY"],
+        ["muscle_gain", "GOAL"]
+      ],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 10,
+      "input": "I'm vegan and allergic to peanuts",
+      "intent": "update_profile",
+      "language": "english",
+      "entities": [
+        ["vegan", "DIET"],
+        ["peanuts", "RESTRICTION"]
+      ],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 11,
+      "input": "كلت 200 جرام فراخ مشوية",
+      "intent": "calculate_calories",
+      "language": "arabic",
+      "entities": [
+        ["فراخ مشوية", "FOOD"],
+        ["200", "QUANTITY"],
+        ["جرام", "UNIT"]
+      ],
+      "foods": ["فراخ مشوية"],
+      "quantities": [[200.0, "gram"]],
+      "calories_gold": 330.0
+    },
+    {
+      "id": 12,
+      "input": "أكلت 2 بيضة على الفطار",
+      "intent": "calculate_calories",
+      "language": "arabic",
+      "entities": [
+        ["بيض", "FOOD"],
+        ["2", "QUANTITY"],
+        ["piece", "UNIT"],
+        ["فطار", "MEAL_TYPE"]
+      ],
+      "foods": ["بيض"],
+      "quantities": [[2.0, "piece"]],
+      "calories_gold": 155.0
+    },
+    {
+      "id": 13,
+      "input": "عايز خطة أكل ليوم كامل",
+      "intent": "daily_plan",
+      "language": "arabic",
+      "entities": [],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 14,
+      "input": "كم سعرة في كوب رز أبيض؟",
+      "intent": "food_nutrition",
+      "language": "arabic",
+      "entities": [
+        ["رز أبيض", "FOOD"],
+        ["1", "QUANTITY"],
+        ["كوب", "UNIT"]
+      ],
+      "foods": ["رز أبيض"],
+      "quantities": [[1.0, "cup"]],
+      "calories_gold": 205.0
+    },
+    {
+      "id": 15,
+      "input": "بديل البيض في الدايت",
+      "intent": "food_substitution",
+      "language": "arabic",
+      "entities": [["بيض", "FOOD"]],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 16,
+      "input": "أكل إيه قبل التمرين؟",
+      "intent": "fitness_nutrition_question",
+      "language": "arabic",
+      "entities": [],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 17,
+      "input": "أهلاً، إيه اللي تقدر تعمله؟",
+      "intent": "general_chat",
+      "language": "arabic",
+      "entities": [],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 18,
+      "input": "أنا ولد عمري 25، وزني 90، وطولي 175، عايز أخس",
+      "intent": "update_profile",
+      "language": "arabic",
+      "entities": [
+        ["male", "GENDER"],
+        ["90", "WEIGHT"],
+        ["175", "HEIGHT"],
+        ["weight_loss", "GOAL"]
+      ],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 19,
+      "input": "عندي حساسية من الألبان",
+      "intent": "update_profile",
+      "language": "arabic",
+      "entities": [["dairy", "RESTRICTION"]],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 20,
+      "input": "عايز وجبة غداء 600 سعرة بدون سمك",
+      "intent": "meal_recommendation",
+      "language": "arabic",
+      "entities": [
+        ["غداء", "MEAL_TYPE"],
+        ["600", "QUANTITY"],
+        ["سمك", "RESTRICTION"]
+      ],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": 600.0
+    },
+    {
+      "id": 21,
+      "input": "I had 2 eggs and a cup of oats",
+      "intent": "calculate_calories",
+      "language": "english",
+      "entities": [
+        ["egg", "FOOD"],
+        ["2", "QUANTITY"],
+        ["piece", "UNIT"],
+        ["oats", "FOOD"],
+        ["1", "QUANTITY"],
+        ["cup", "UNIT"]
+      ],
+      "foods": ["egg", "oats"],
+      "quantities": [[2.0, "piece"], [1.0, "cup"]],
+      "calories_gold": 310.0
+    },
+    {
+      "id": 22,
+      "input": "I ate grilled salmon with brown rice",
+      "intent": "calculate_calories",
+      "language": "english",
+      "entities": [
+        ["grilled salmon", "FOOD"],
+        ["brown rice", "FOOD"]
+      ],
+      "foods": ["grilled salmon", "brown rice"],
+      "quantities": [[1.0, "piece"], [1.0, "cup"]],
+      "calories_gold": null
+    },
+    {
+      "id": 23,
+      "input": "كلت 100 جرام لوز",
+      "intent": "calculate_calories",
+      "language": "arabic",
+      "entities": [
+        ["لوز", "FOOD"],
+        ["100", "QUANTITY"],
+        ["جرام", "UNIT"]
+      ],
+      "foods": ["لوز"],
+      "quantities": [[100.0, "gram"]],
+      "calories_gold": 579.0
+    },
+    {
+      "id": 24,
+      "input": "أكلت grilled salmon مع 1 cup برية وسلطة",
+      "intent": "calculate_calories",
+      "language": "mixed",
+      "entities": [
+        ["grilled salmon", "FOOD"],
+        ["brown rice", "FOOD"],
+        ["1", "QUANTITY"],
+        ["cup", "UNIT"],
+        ["سلطة", "FOOD"]
+      ],
+      "foods": ["grilled salmon", "brown rice", "سلطة"],
+      "quantities": [[1.0, "piece"], [1.0, "cup"], [1.0, "bowl"]],
+      "calories_gold": null
+    },
+    {
+      "id": 25,
+      "input": "كلت three eggs وكوب milk على الفطار",
+      "intent": "calculate_calories",
+      "language": "mixed",
+      "entities": [
+        ["egg", "FOOD"],
+        ["3", "QUANTITY"],
+        ["piece", "UNIT"],
+        ["milk", "FOOD"],
+        ["1", "QUANTITY"],
+        ["cup", "UNIT"],
+        ["breakfast", "MEAL_TYPE"]
+      ],
+      "foods": ["egg", "milk"],
+      "quantities": [[3.0, "piece"], [1.0, "cup"]],
+      "calories_gold": 380.0
+    },
+    {
+      "id": 26,
+      "input": "I want خطة أكل بس بدون dairy",
+      "intent": "daily_plan",
+      "language": "mixed",
+      "entities": [["dairy", "RESTRICTION"]],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 27,
+      "input": "Make me a 400-calorie breakfast without eggs",
+      "intent": "meal_recommendation",
+      "language": "english",
+      "entities": [
+        ["breakfast", "MEAL_TYPE"],
+        ["400", "QUANTITY"],
+        ["eggs", "RESTRICTION"]
+      ],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": 400.0
+    },
+    {
+      "id": 28,
+      "input": "I had a cup of milk and a slice of bread",
+      "intent": "calculate_calories",
+      "language": "english",
+      "entities": [
+        ["milk", "FOOD"],
+        ["1", "QUANTITY"],
+        ["cup", "UNIT"],
+        ["bread", "FOOD"],
+        ["1", "QUANTITY"],
+        ["slice", "UNIT"]
+      ],
+      "foods": ["milk", "bread"],
+      "quantities": [[1.0, "cup"], [1.0, "slice"]],
+      "calories_gold": 228.0
+    },
+    {
+      "id": 29,
+      "input": "عايز أخس 5 كيلو",
+      "intent": "update_profile",
+      "language": "arabic",
+      "entities": [
+        ["weight_loss", "GOAL"],
+        ["5", "QUANTITY"],
+        ["kilogram", "UNIT"]
+      ],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    },
+    {
+      "id": 30,
+      "input": "Suggest a meal without eggs",
+      "intent": "meal_recommendation",
+      "language": "english",
+      "entities": [["eggs", "RESTRICTION"]],
+      "foods": [],
+      "quantities": [],
+      "calories_gold": null
+    }
+  ]
+}

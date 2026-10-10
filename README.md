@@ -1,143 +1,173 @@
-# NutriAgent AI
+# Nutrition AI Service
 
-NutriAgent AI is an AI-powered nutrition and food retrieval agent that understands Arabic and English food queries, searches USDA FoodData Central, ranks the most relevant food matches, and returns accurate nutritional information.
+A stateless FastAPI service for Arabic and English nutrition conversations.
 
-The system combines NLP, semantic search, Cross-Encoder re-ranking, food-query normalization, and USDA nutrition data retrieval in a single intelligent pipeline.
+It parses messages, retrieves USDA nutrients on demand, calculates calories
+and macros, generates and validates meals, and answers fitness questions
+using a RAG knowledge base.
 
----
+The calling backend owns accounts, conversations, message storage, and
+profile persistence. Each request supplies its processing context.
 
-## Features
+See [the pipeline guide](docs/pipeline.md) for routing, tools, retrieval,
+validation, and evaluation boundaries.
 
-- Arabic and English food query support
-- Egyptian Arabic food normalization
-- Arabic-to-English Transformer translation
-- Smart food-name mapping
-- USDA FoodData Central API integration
-- Semantic food retrieval using Sentence Transformers
-- Cross-Encoder re-ranking
-- Lexical and fuzzy matching
-- Cooking-method detection
-- Composite-food and processed-food penalties
-- Automatic selection of the best food match
-- Calories and macronutrient extraction
-- Complete integration pipeline through a single agent function
+## Setup
 
----
+Use Python 3.10–3.12. These commands use Windows PowerShell and Python 3.12.
+Run them from the repository root.
 
-## Technologies
-
-- Python
-- NLP
-- Hugging Face Transformers
-- Sentence Transformers
-- USDA FoodData Central API
-- Pandas
-- PyTorch
----
-
-## System Workflow
-
-```text
-User Food Query
-      ↓
-Arabic / English Input Detection
-      ↓
-Input Validation
-      ↓
-Text Cleaning & Preprocessing
-      ↓
-Dialect Normalization
-      ↓
-Food Query Normalization
-      ↓
-Direct Food Mapping
-      ↓
-Arabic → English Transformer Translation
-      ↓
-Post-Translation Mapping
-      ↓
-Canonical Food Query
-      ↓
-USDA FoodData Central API Search
-      ↓
-Retrieve Food Candidates
-      ↓
-Generic / Non-Branded Food Filtering
-      ↓
-Bi-Encoder Semantic Embedding
-      ↓
-Semantic Similarity Calculation
-      ↓
-Top-K Candidate Selection
-      ↓
-Cross-Encoder Re-Ranking
-      ↓
-Query Coverage Calculation
-      ↓
-Candidate Precision Calculation
-      ↓
-Lexical / Fuzzy Similarity
-      ↓
-Phrase Matching
-      ↓
-Leading Food Match
-      ↓
-Preparation Method Matching
-      ↓
-Preparation Conflict Detection
-      ↓
-Composite Dish Detection
-      ↓
-Food-Part Conflict Detection
-      ↓
-Modifier Conflict Detection
-      ↓
-Processed Food Detection
-      ↓
-Unrequested Modifier Detection
-      ↓
-Smart Penalties & Bonuses
-      ↓
-Final Match Score Calculation
-      ↓
-Candidate Re-Ranking
-      ↓
-Best USDA Food Candidate
-      ↓
-USDA Food Details Retrieval
-      ↓
-Nutrition Completeness Validation
-      ↓
-Calories Extraction
-      ↓
-Protein Extraction
-      ↓
-Carbohydrates Extraction
-      ↓
-Fat Extraction
-      ↓
-Search & Details Cache
-      ↓
-Integration Function
-      ↓
-Structured JSON Output
-      ↓
-Food Retrieval Agent Response
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
 
+For development, `requirements-dev.txt` installs runtime dependencies
+plus testing, evaluation, and developer tools.
 
-## Example
+For a runtime-only environment, install:
 
-Input:
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
 
-```python
-integration("رز أبيض")
+No editable installation or wheel is required.
 
----
-Output:
- Normalized Query: white rice
- Best Match: Rice, white, cooked
- Calories: 130 kcal
- Protein: 2.54 g
- Carbs: 29 g
- Fat: 0.37 g
+Keep credentials in a root `.env` file or set process environment variables.
+
+| Variable | Purpose |
+| --- | --- |
+| `GROQ_API_KEY_NLP` | Parser key and fallback for the other Groq clients. |
+| `GROQ_API_KEY_MEALS` | Optional dedicated meal-generation and revision key. |
+| `GROQ_API_KEY_RAG` | Optional dedicated knowledge-answer and general-chat key. |
+| `USDA_API_KEY` | Key for USDA requests. |
+| `USDA_BASE_URL` | Optional override of `https://api.nal.usda.gov/fdc/v1`. |
+| `NUTRITION_AI_RAG_DIR` | Optional directory containing matching index and chunks files. |
+
+The HTTP service loads `.env` at startup. Existing process environment
+values win. Retrieval models load on demand and may download weights
+on first use.
+
+## Run
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+Open [Swagger](http://127.0.0.1:8001/docs).
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/health` | Process liveness; does not check providers or models. |
+| POST | `/v1/chat` | Process a message with optional profile and history. |
+
+Example request:
+
+```json
+{
+  "message": "My weight is 82 kg",
+  "profile": {
+    "birth_date": "1990-01-01",
+    "gender": "male",
+    "weight": 80,
+    "height": 180,
+    "activity_level": "moderate",
+    "goal": "weight_loss"
+  },
+  "history": []
+}
+```
+
+The response contains `response`, `intent`, `status`, `language`, `profile`,
+and `revision_count`. The backend persists accepted profile changes
+and messages.
+
+History contains prior user/assistant messages with `role` and `content`,
+excluding the current message. Each request creates a fresh assistant.
+
+Messages are limited to 4000 characters. History accepts 20 entries of up
+to 10000 characters each; the parser uses only the last six entries.
+
+General-chat and RAG answer generation do not yet receive the full
+transcript. Structured meal recall, durable memory, and service
+authentication remain future work.
+
+Invalid request data returns 422. HTTP 200 does not certify a valid meal
+or a successful model call; inspect the response and metadata.
+
+## Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `app/main.py` | FastAPI application and startup. |
+| `app/api/` | HTTP routes and request/response schemas. |
+| `app/ai/` | AI processing, orchestration, and nutrition logic. |
+| `app/config.py`, `app/paths.py` | Environment loading and resource paths. |
+| `evaluation/` | Metrics and evaluation runners. |
+| `scripts/` | Developer inspection utilities. |
+| `tests/` | Automated tests. |
+| `data/` | Knowledge documents and evaluation inputs. |
+| `artifacts/rag/` | Tracked runtime index and matching chunks. |
+| `artifacts/evaluation/` | Generated evaluation output. |
+| `docs/` | Pipeline guide and historical reports. |
+
+## Verification
+
+```powershell
+.\.venv\Scripts\python.exe -m ruff check app evaluation scripts tests
+.\.venv\Scripts\python.exe -m ruff format --check app evaluation scripts tests
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Tests mock model and API boundaries where required. Passing tests does
+not establish live provider availability or model accuracy.
+
+## Evaluation
+
+Evaluation commands require the dependencies in `requirements-dev.txt`.
+
+Smoke-test the harness using sample predictions:
+
+```powershell
+.\.venv\Scripts\python.exe -m evaluation.run_evaluation --scope full
+```
+
+Generate independent NLP predictions, then evaluate the saved output:
+
+```powershell
+.\.venv\Scripts\python.exe -m evaluation.run_real_predictions
+.\.venv\Scripts\python.exe -m evaluation.run_evaluation --predictions artifacts/evaluation/predictions_real.json --scope nlp
+```
+
+Run live RAG evaluation after configuring credentials:
+
+```powershell
+.\.venv\Scripts\python.exe -m evaluation.rag_evaluation
+```
+
+Outputs default to `artifacts/evaluation/`. Prediction rows must match
+dataset rows in order. NLP scope does not evaluate generated meals or
+calculated calories.
+
+Sample scores verify the harness, not live assistant quality.
+Reference-similarity metrics alone do not establish factual accuracy.
+Historical reports are not results for the current service.
+
+## RAG assets
+
+Builder and retriever default to `artifacts/rag/` under the repository root.
+Relative `NUTRITION_AI_RAG_DIR` values resolve against that root.
+
+Keep `faiss_index.bin` and `chunks.json` from the same build.
+
+After changing documents in `data/knowledge_base/`, rebuild:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.ai.rag.build_index
+```
+
+For custom builder or evaluator paths, set `NUTRITION_AI_RAG_DIR` in the
+process environment before running the command. Configure the same
+directory for the HTTP service.
+
+Restart the service after rebuilding its assets.
