@@ -3,6 +3,7 @@
 from copy import deepcopy
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.ai.agent import food_lookup, orchestrator
@@ -137,6 +138,9 @@ def test_exception_discards_unfinished_meal_output(monkeypatch):
         raise RuntimeError("Formatter failed")
 
     monkeypatch.setattr(orchestrator, "handle", fail)
-    result = NutritionAssistant().respond("meal")
-    assert "something went wrong" in result.response
-    assert result.meals == []
+    assistant = NutritionAssistant()
+
+    with pytest.raises(RuntimeError, match="Formatter failed"):
+        assistant.respond("meal")
+
+    assert assistant.agent_state.meals == []

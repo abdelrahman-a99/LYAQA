@@ -83,7 +83,7 @@ def _route_and_answer(message: str, session: NLPSession, state: AgentState) -> s
         query = message
         if intent == "food_substitution" and requested_substitution and not history:
             query = f"What can I substitute for {requested_substitution}?"
-        return handle_rag_flow(query, language, intent, history)
+        return handle_rag_flow(query, language, intent, history, state=state)
 
     # ── meal_recommendation ─────────────────────────────────────────────────
     if intent == "meal_recommendation":

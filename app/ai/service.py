@@ -1,8 +1,5 @@
-import logging
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -82,14 +79,7 @@ class NutritionAssistant:
             )
         except Exception:
             self.agent_state.meals = []
-            logger.exception(
-                "Agent failed for session %s",
-                self.agent_state.session_id,
-            )
-            response = (
-                "Sorry, something went wrong while processing your message. "
-                "Please try again."
-            )
+            raise
 
         return AssistantResponse(
             response=response,

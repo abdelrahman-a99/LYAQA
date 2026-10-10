@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.ai.service import NutritionAssistant
+from app.api.errors import CHAT_ERROR_RESPONSES
 
 from .schemas import ChatRequest, ChatResponse, HealthResponse
 
@@ -15,7 +16,12 @@ def health() -> HealthResponse:
     return HealthResponse(status="ok")
 
 
-@router.post("/v1/chat", response_model=ChatResponse, tags=["Chat"])
+@router.post(
+    "/v1/chat",
+    response_model=ChatResponse,
+    responses=CHAT_ERROR_RESPONSES,
+    tags=["Chat"],
+)
 def chat(payload: ChatRequest) -> ChatResponse:
     """Create a request-local assistant; retain no conversation between calls."""
     profile = payload.profile.model_dump() if payload.profile is not None else None

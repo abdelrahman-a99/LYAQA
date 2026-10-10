@@ -17,7 +17,7 @@ def parse_query(message: str, session: NLPSession, intent: str = "") -> dict:
         duration = (time.perf_counter() - t0) * 1000
         _log("parse_query", intent, {"message_len": len(message)}, True, duration)
         return _envelope(True, result)
-    except Exception as exc:
+    except Exception:
         duration = (time.perf_counter() - t0) * 1000
         _log("parse_query", intent, {"message_len": len(message)}, False, duration)
-        return _envelope(False, error=str(exc), error_code="parse_error")
+        raise

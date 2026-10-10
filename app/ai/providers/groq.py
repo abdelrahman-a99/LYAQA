@@ -1,6 +1,8 @@
 import os
 from functools import lru_cache
 
+from app.ai.contracts.errors import ProcessingError
+
 
 @lru_cache(maxsize=3)
 def get_client(role: str = "nlp"):
@@ -13,7 +15,11 @@ def get_client(role: str = "nlp"):
         key = os.environ.get("GROQ_API_KEY_NLP")
 
     if not key:
-        raise ValueError(f"Groq API key is missing for role: {role}")
+        raise ProcessingError(
+            "Language model credentials are not configured.",
+            code="llm_configuration_error",
+            status_code=500,
+        )
 
     from groq import Groq
 

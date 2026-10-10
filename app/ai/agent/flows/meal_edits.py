@@ -7,6 +7,7 @@ from app.ai.agent.meal_edit_llm import call_meal_changes, call_meal_selection
 from app.ai.agent.prompts import ALLOWED_UNITS
 from app.ai.agent.state import AgentState
 from app.ai.agent.tools import calculate_meal_nutrition
+from app.ai.contracts.errors import ProcessingError
 from app.ai.conversation.meal_edits import apply_food_changes
 from app.ai.conversation.meals import build_meal_snapshot
 from app.ai.presentation.meal_edits import format_meal_edit_response
@@ -54,12 +55,10 @@ def handle_meal_edit(
             "Specify the meal and requested change; previous meals are unchanged.",
         )
     if selection is None:
-        return edit_reply(
-            state,
-            "meal_edit_failed",
-            language,
-            "تعذر فهم تعديل الوجبة الآن. حاول مرة أخرى؛ الوجبة السابقة لم تتغير.",
-            "Could not resolve the meal edit. Retry; the previous meal is unchanged.",
+        raise ProcessingError(
+            "The language model returned an invalid output.",
+            code="llm_invalid_output",
+            status_code=502,
         )
     selected = next(
         (meal for meal in candidates if meal["meal_id"] == selection.meal_id), None
@@ -77,12 +76,10 @@ def handle_meal_edit(
     )
     changes = call_meal_changes(message, history, selected, profile, target, language)
     if changes is None:
-        return edit_reply(
-            state,
-            "meal_edit_failed",
-            language,
-            "تعذر إنشاء تعديل صالح الآن؛ الوجبة السابقة لم تتغير.",
-            "Could not create a valid edit; the previous meal is unchanged.",
+        raise ProcessingError(
+            "The language model returned an invalid output.",
+            code="llm_invalid_output",
+            status_code=502,
         )
     if not changes.changes:
         return edit_reply(

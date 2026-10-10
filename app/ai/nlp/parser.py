@@ -1,8 +1,7 @@
-"""Structured NLP extraction with the original retry and fallback behavior."""
+"""Structured NLP extraction with one retry for malformed output."""
 
 from __future__ import annotations
 
-import json
 from typing import List, Optional
 
 from app.ai.contracts.nlp import NLPOutput
@@ -10,6 +9,7 @@ from app.ai.nlp.config import GROQ_MODEL
 from app.ai.nlp.language import detect_language
 from app.ai.nlp.normalization import normalize_output
 from app.ai.nlp.prompts import build_parser_messages
+from app.ai.providers.errors import completion_text, raise_groq_failure
 from app.ai.providers.groq import get_client
 
 
@@ -28,21 +28,7 @@ def _groq_call(messages: List[dict]) -> dict:
             },
         },
     )
-    return json.loads(response.choices[0].message.content)
-
-
-def _safe_fallback(user_message: str) -> dict:
-    """Never crash: return a safe general_chat when all retries fail."""
-    return {
-        "intent": "general_chat",
-        "language_detected": detect_language(user_message),
-        "raw_text": user_message,
-        "meal_type": None,
-        "target_calories": None,
-        "requested_substitution": None,
-        "foods": [],
-        "profile_data": None,
-    }
+    return NLPOutput.model_validate_json(completion_text(response)).model_dump()
 
 
 def _parse(
@@ -60,15 +46,19 @@ def _parse(
 
             return normalize_output(parsed)
 
-        except Exception:
-            if attempt == 1:
-                return normalize_output(_safe_fallback(user_message))
+        except (ValueError, TypeError) as exc:
+            if attempt == 0:
+                continue
+            raise_groq_failure(exc)
 
-    return normalize_output(_safe_fallback(user_message))
+        except Exception as exc:
+            raise_groq_failure(exc)
+
+    raise RuntimeError("NLP parsing ended without a result")
 
 
 def parse_user_input(user_message: str) -> dict:
-    """Parse one message with one retry and a safe fallback."""
+    """Parse one message; raise if the provider or output validation fails."""
     return _parse(user_message)
 
 
