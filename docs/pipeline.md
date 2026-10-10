@@ -126,7 +126,14 @@ meal counter, not the sum for all meals.
 
 ## 6. Knowledge RAG
 
-`handle_rag_flow()` calls the retrieval tool, which delegates to
+`handle_rag_flow()` receives a snapshot of recent conversation messages.
+When history is present, `call_question_resolution()` resolves the current
+request into a standalone search question before retrieval. Its validated output
+contains `question`: text when resolved, or null when a reference is unclear.
+Ambiguity prompts clarification; model or validation failures prompt a retry.
+Neither path calls retrieval. Without history, the original search path is used.
+
+The resolved query goes to the retrieval tool, which delegates to
 `rag/retrieve.py: retrieve_fitness_knowledge()`.
 
 The retriever embeds the query with multilingual MiniLM, searches a FAISS
@@ -134,7 +141,9 @@ inner-product index, and returns up to three passages with scores and source
 filenames. Retrieval requires the best score to be at least 0.35; individual
 returned passages are not each checked against that threshold.
 
-Successful retrieval is passed to `agent/llm.py: call_rag_answer()`. Low-confidence
+Successful retrieval and recent history are passed to
+`agent/llm.py: call_rag_answer()`. History supplies conversational context, while
+retrieved passages remain the factual source. Low-confidence
 retrieval, retrieval errors, and answer-generation failure have separate replies.
 This flow performs no USDA lookup or meal revision. A substitution answer is
 knowledge-based advice; it does not guarantee equivalent calories or macros.
@@ -159,8 +168,11 @@ The calling backend owns accounts, conversations, and durable storage.
 It saves the user message, final response, and approved profile changes, then
 supplies the required context with the next request.
 
-General-chat and RAG answer generation still use their existing inputs.
-Complete answer-generation history and structured meal recall are separate work.
+Before parsing, the orchestrator snapshots the last six prior user/assistant
+messages for answer generation. This excludes the current turn's parser JSON
+and avoids appending the current user message twice.
+General-chat generation, RAG question resolution, and RAG answer generation
+receive that snapshot. Structured meal recall remains separate work.
 
 ## 8. Evaluation boundaries
 

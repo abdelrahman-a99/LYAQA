@@ -88,9 +88,12 @@ excluding the current message. Each request creates a fresh assistant.
 Messages are limited to 4000 characters. History accepts 20 entries of up
 to 10000 characters each; the parser uses only the last six entries.
 
-General-chat and RAG answer generation do not yet receive the full
-transcript. Structured meal recall, durable memory, and service
-authentication remain future work.
+General-chat and RAG answer generation use the last six prior messages.
+When history is present, RAG first resolves the current request into a standalone
+search question using an additional Groq call. Unclear references trigger a
+clarification request; resolution failures ask the caller to retry.
+Retrieved passages remain the source for factual RAG answers.
+Structured meal recall, durable memory, and service authentication remain future work.
 
 Invalid request data returns 422. HTTP 200 does not certify a valid meal
 or a successful model call; inspect the response and metadata.

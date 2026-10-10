@@ -10,6 +10,7 @@ from app.ai.agent.flows.knowledge import handle_rag_flow
 from app.ai.agent.flows.meals import handle_meal_recommendation
 from app.ai.agent.state import AgentState
 from app.ai.agent.tools import parse_query
+from app.ai.conversation.context import recent_history
 from app.ai.conversation.session import NLPSession
 
 
@@ -21,6 +22,9 @@ def _route_and_answer(message: str, session: NLPSession, state: AgentState) -> s
     not buried inside intent-specific code.
     """
     state.raw_query = message
+
+    # Snapshot before parsing appends the current message and its extracted JSON.
+    history = recent_history(session.history)
 
     parse_result = parse_query(message, session, intent="routing")
     if not parse_result["success"]:
@@ -47,7 +51,7 @@ def _route_and_answer(message: str, session: NLPSession, state: AgentState) -> s
 
     # ── general_chat ────────────────────────────────────────────────────────
     if intent == "general_chat":
-        return handle_general_chat(message, language)
+        return handle_general_chat(message, language, history)
 
     # ── update_profile ──────────────────────────────────────────────────────
     if intent == "update_profile":
@@ -65,9 +69,9 @@ def _route_and_answer(message: str, session: NLPSession, state: AgentState) -> s
     # ── food_substitution / fitness_nutrition_question ──────────────────────
     if intent in ("food_substitution", "fitness_nutrition_question"):
         query = message
-        if intent == "food_substitution" and requested_substitution:
+        if intent == "food_substitution" and requested_substitution and not history:
             query = f"What can I substitute for {requested_substitution}?"
-        return handle_rag_flow(query, language, intent)
+        return handle_rag_flow(query, language, intent, history)
 
     # ── meal_recommendation ─────────────────────────────────────────────────
     if intent == "meal_recommendation":
@@ -80,7 +84,7 @@ def _route_and_answer(message: str, session: NLPSession, state: AgentState) -> s
         return handle_daily_plan(profile, language, state)
 
     # Unknown intent — safe fallback
-    return handle_general_chat(message, language)
+    return handle_general_chat(message, language, history)
 
 
 def handle(message: str, session: NLPSession, state: AgentState) -> str:
