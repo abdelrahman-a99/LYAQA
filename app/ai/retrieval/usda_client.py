@@ -3,19 +3,18 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Dict, List, Optional, Tuple
 
-import requests
-
 from app.ai.retrieval.cache import DETAILS_CACHE, SEARCH_CACHE
-from app.ai.retrieval.config import get_api_key, get_base_url
+from app.ai.retrieval.http import invalid_response, request_json
 
 logger = logging.getLogger(__name__)
 
 
 def search_food_usda(food_name, max_results=50):
-    """USDA search. Returns [{fdc_id, description, data_type}]."""
-    if not food_name:
+    """Return search candidates; propagate USDA operational failures."""
+    if not food_name or not food_name.strip():
         return []
 
     cache_key = (food_name.strip().lower(), max_results)
@@ -23,45 +22,41 @@ def search_food_usda(food_name, max_results=50):
         logger.debug("Search cache hit: %s", food_name)
         return SEARCH_CACHE[cache_key]
 
-    url = f"{get_base_url()}/foods/search"
-    params = {"api_key": get_api_key(), "query": food_name, "pageSize": max_results}
+    data = request_json(
+        "foods/search", params={"query": food_name, "pageSize": max_results}
+    )
+    if not isinstance(data.get("foods"), list):
+        raise invalid_response()
 
-    try:
-        response = requests.get(url, params=params, timeout=10)
+    results = []
+    for food in data["foods"]:
+        _validate_food(food)
+        results.append(
+            {
+                "fdc_id": food["fdcId"],
+                "description": food["description"],
+                "data_type": food.get("dataType"),
+            }
+        )
 
-        if response.status_code == 403:
-            raise RuntimeError("Invalid USDA API key.")
-        if response.status_code == 429:
-            raise RuntimeError("USDA API rate limit exceeded.")
+    SEARCH_CACHE[cache_key] = results
+    return results
 
-        response.raise_for_status()
-        data = response.json()
 
-        results = []
-        for food in data.get("foods", []):
-            description = food.get("description")
-            if not description:
-                continue
-            results.append(
-                {
-                    "fdc_id": food.get("fdcId"),
-                    "description": description,
-                    "data_type": food.get("dataType"),
-                }
-            )
-
-        SEARCH_CACHE[cache_key] = results
-        return results
-
-    except requests.exceptions.Timeout:
-        logger.warning("USDA search timed out for query=%r", food_name)
-        return []
-    except requests.exceptions.ConnectionError:
-        logger.warning("Could not connect to USDA for query=%r", food_name)
-        return []
-    except Exception as e:
-        logger.error("USDA Search Error for query=%r: %s", food_name, e)
-        return []
+def _validate_food(data: object, expected_id: int | None = None) -> None:
+    """Reject malformed records before caching or numerical calculation."""
+    if not isinstance(data, dict):
+        raise invalid_response()
+    fdc_id = data.get("fdcId")
+    description = data.get("description")
+    if (
+        type(fdc_id) is not int
+        or fdc_id <= 0
+        or (expected_id is not None and fdc_id != expected_id)
+        or not isinstance(description, str)
+        or not description.strip()
+    ):
+        raise invalid_response()
 
 
 _USDA_NUTRIENT_IDS = {
@@ -105,63 +100,61 @@ def _extract_portions(data: dict) -> List[dict]:
 
 
 def get_food_details(fdc_id: int) -> Optional[dict]:
-    """Per-100g nutrition + household portions for a USDA food."""
+    """Return per-100g nutrients; a missing USDA record returns None."""
     if fdc_id in DETAILS_CACHE:
         logger.debug("Details cache hit: %s", fdc_id)
         return DETAILS_CACHE[fdc_id]
 
-    url = f"{get_base_url()}/food/{fdc_id}"
-    params = {"api_key": get_api_key()}
+    data = request_json(f"food/{fdc_id}", allow_not_found=True)
+    if data is None:
+        return None
+    _validate_food(data, expected_id=fdc_id)
+
+    items = data.get("foodNutrients", [])
+    if not isinstance(items, list):
+        raise invalid_response()
+
+    nutrient_values: Dict[int, float] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            raise invalid_response()
+        nutrient = item.get("nutrient") or {}
+        if not isinstance(nutrient, dict):
+            raise invalid_response()
+        nid = nutrient.get("id")
+        amount = item.get("amount")
+        if nid is None or amount is None:
+            continue
+        if (
+            type(nid) is not int
+            or type(amount) not in (int, float)
+            or not math.isfinite(amount)
+            or amount < 0
+        ):
+            raise invalid_response()
+        nutrient_values[nid] = amount
 
     try:
-        response = requests.get(url, params=params, timeout=10)
+        portions = _extract_portions(data)
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise invalid_response() from exc
 
-        if response.status_code == 404:
-            return None
-        if response.status_code == 403:
-            raise RuntimeError("Invalid USDA API key.")
-        if response.status_code == 429:
-            raise RuntimeError("USDA API rate limit exceeded.")
+    result = {
+        "fdc_id": data["fdcId"],
+        "food_name": data["description"],
+        "calories_per_100g": _first_present(
+            nutrient_values, _USDA_NUTRIENT_IDS["calories"]
+        ),
+        "protein_per_100g": _first_present(
+            nutrient_values, _USDA_NUTRIENT_IDS["protein"]
+        ),
+        "carbs_per_100g": _first_present(nutrient_values, _USDA_NUTRIENT_IDS["carbs"]),
+        "fat_per_100g": _first_present(nutrient_values, _USDA_NUTRIENT_IDS["fat"]),
+        "portions": portions,
+    }
 
-        response.raise_for_status()
-        data = response.json()
-
-        nutrient_values: Dict[int, float] = {}
-        for item in data.get("foodNutrients", []):
-            nutrient = item.get("nutrient") or {}
-            nid = nutrient.get("id")
-            amt = item.get("amount")
-            if nid is not None and amt is not None:
-                nutrient_values[nid] = amt
-
-        result = {
-            "fdc_id": data.get("fdcId"),
-            "food_name": data.get("description"),
-            "calories_per_100g": _first_present(
-                nutrient_values, _USDA_NUTRIENT_IDS["calories"]
-            ),
-            "protein_per_100g": _first_present(
-                nutrient_values, _USDA_NUTRIENT_IDS["protein"]
-            ),
-            "carbs_per_100g": _first_present(
-                nutrient_values, _USDA_NUTRIENT_IDS["carbs"]
-            ),
-            "fat_per_100g": _first_present(nutrient_values, _USDA_NUTRIENT_IDS["fat"]),
-            "portions": _extract_portions(data),
-        }
-
-        DETAILS_CACHE[fdc_id] = result
-        return result
-
-    except requests.exceptions.Timeout:
-        logger.warning("USDA details timed out for fdc_id=%s", fdc_id)
-        return None
-    except requests.exceptions.ConnectionError:
-        logger.warning("Could not connect to USDA for fdc_id=%s", fdc_id)
-        return None
-    except Exception as e:
-        logger.error("USDA Details Error for fdc_id=%s: %s", fdc_id, e)
-        return None
+    DETAILS_CACHE[fdc_id] = result
+    return result
 
 
 def nutrition_is_complete(details) -> bool:

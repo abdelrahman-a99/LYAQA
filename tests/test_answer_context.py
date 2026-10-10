@@ -13,6 +13,7 @@ from app.ai.agent.prompts import (
     build_rag_answer_messages,
 )
 from app.ai.contracts.conversation import ResolvedKnowledgeQuestion
+from app.ai.contracts.errors import ProcessingError
 from app.ai.conversation import session as session_module
 from app.ai.conversation.context import recent_history
 from app.main import create_app
@@ -133,7 +134,6 @@ def test_rag_http_follow_up_uses_resolved_question_for_search_and_answer(
     "resolution, expected",
     [
         (ResolvedKnowledgeQuestion(question=None), "ممكن توضح"),
-        (None, "تعذر فهم"),
     ],
 )
 def test_ambiguous_or_failed_resolution_does_not_search_or_answer(
@@ -184,14 +184,18 @@ def test_no_history_preserves_direct_search_without_extra_model_call(monkeypatch
 def test_invalid_resolution_output_returns_failure(monkeypatch, content):
     provider = fake_client(content)
     monkeypatch.setattr(llm, "get_client", lambda purpose: provider)
-    assert llm.call_question_resolution("And after?", "english", HISTORY) is None
+    with pytest.raises(ProcessingError) as caught:
+        llm.call_question_resolution("And after?", "english", HISTORY)
+
+    assert caught.value.code == "llm_invalid_output"
 
 
 def test_provider_exception_returns_resolution_failure(monkeypatch):
     provider = Mock()
     provider.chat.completions.create.side_effect = RuntimeError("Unavailable")
     monkeypatch.setattr(llm, "get_client", lambda purpose: provider)
-    assert llm.call_question_resolution("And after?", "english", HISTORY) is None
+    with pytest.raises(RuntimeError, match="Unavailable"):
+        llm.call_question_resolution("And after?", "english", HISTORY)
 
 
 @pytest.mark.parametrize("question", [None, "What should I eat after exercise?"])

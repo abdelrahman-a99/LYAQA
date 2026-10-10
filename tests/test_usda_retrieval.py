@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.ai.retrieval import http as usda_http
 from app.ai.retrieval import models, service, usda_client
 from app.ai.retrieval.cache import clear_caches
 from app.ai.retrieval.normalization import normalize_food_query
@@ -15,7 +16,7 @@ def reset_cache(monkeypatch):
     clear_caches()
 
     monkeypatch.setattr(
-        usda_client,
+        usda_http,
         "get_api_key",
         lambda: "test-key",
     )
@@ -47,7 +48,7 @@ def test_usda_search_cache(monkeypatch):
 
     get = MagicMock(return_value=response)
 
-    monkeypatch.setattr(usda_client.requests, "get", get)
+    monkeypatch.setattr(usda_http.requests, "get", get)
 
     first = usda_client.search_food_usda("apple")
     second = usda_client.search_food_usda("apple")
@@ -74,7 +75,7 @@ def test_zero_nutrients_are_valid(monkeypatch):
     }
 
     monkeypatch.setattr(
-        usda_client.requests,
+        usda_http.requests,
         "get",
         MagicMock(return_value=response),
     )

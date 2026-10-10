@@ -1,10 +1,16 @@
 import os
 
+from app.ai.contracts.errors import ProcessingError
+
 
 def get_api_key() -> str:
     key = os.environ.get("USDA_API_KEY")
     if not key:
-        raise ValueError("USDA_API_KEY is required for USDA requests.")
+        raise ProcessingError(
+            "USDA credentials are not configured.",
+            code="usda_configuration_error",
+            status_code=500,
+        )
     return key
 
 

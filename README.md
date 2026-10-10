@@ -106,8 +106,8 @@ message explicitly supplies a new calorie target. Current profile restrictions
 are checked. Other meals are returned unchanged, not revalidated as a full day.
 
 Selection ambiguity returns `needs_clarification`; missing context returns
-`needs_meal_context`; model, lookup, or calculation failure returns
-`meal_edit_failed`. Failed validation returns `meal_edit_rejected` with calculated
+`needs_meal_context`; lookup or calculation failure returns
+`meal_edit_failed`. Model and USDA operational failures return structured HTTP errors. Failed validation returns `meal_edit_rejected` with calculated
 values and reasons in the text. These paths return `meals: []`, preserving the
 backend's previous group. A valid edit returns the complete updated group with
 the edited meal's original ID. Editing is one attempt without automatic scaling
@@ -119,14 +119,42 @@ to 10000 characters each; the parser uses only the last six entries.
 General-chat and RAG answer generation use the last six prior messages.
 When history is present, RAG first resolves the current request into a standalone
 search question using an additional Groq call. Unclear references trigger a
-clarification request; resolution failures ask the caller to retry.
+clarification request with `needs_clarification`. Low-confidence retrieval returns
+`insufficient_knowledge`. Provider and RAG execution failures return HTTP errors.
 Retrieved passages remain the source for factual RAG answers.
 The chatbot backend keeps the latest nonempty meal batch per conversation.
 An empty batch preserves the previous one. Durable storage and service
 authentication remain future work.
 
 Invalid request data returns 422. HTTP 200 does not certify a valid meal
-or a successful model call; inspect the response and metadata.
+or complete food retrieval; inspect meal validation and failure metadata.
+HTTP failures include `detail`, `error_code`, and `retryable`.
+LLM authentication, rate limits, timeouts, rejected requests, and malformed
+outputs have distinct codes. The backend preserves approved processing codes
+without forwarding upstream diagnostics. Failed HTTP turns do not update
+existing conversation context. `retryable` does not trigger automatic replay.
+
+USDA operational failures return structured HTTP errors with these codes:
+`usda_configuration_error`, `usda_authentication_failed`,
+`usda_request_rejected`, `usda_invalid_response`, `usda_timeout`,
+`usda_rate_limited`, and `usda_unavailable`.
+
+A successful empty search, a missing detail record, and incomplete nutrient
+data remain ordinary food lookup outcomes. Operational failures abort the
+turn and are not cached.
+
+The backend preserves recognized USDA error codes and leaves the previous
+profile, history, and meals unchanged after a failed HTTP turn.
+`retryable` does not trigger automatic replay.
+
+Food retrieval model groups are cached only after successful initialization.
+Concurrent first requests share one initialization per model group within
+each process.
+
+Expected initialization failures return HTTP 503 with
+`error_code: retrieval_model_unavailable` and `retryable: false`.
+Check dependencies, model files, download access, and available memory before
+retrying. Failed HTTP turns leave the backend's saved context unchanged.
 
 ## Repository layout
 

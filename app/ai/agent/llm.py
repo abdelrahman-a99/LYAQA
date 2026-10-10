@@ -1,7 +1,6 @@
 """Execute agent LLM calls and validate their structured outputs."""
 
 import json
-import logging
 from typing import List, Optional
 
 from app.ai.agent.prompts import (
@@ -16,9 +15,8 @@ from app.ai.agent.prompts import (
 from app.ai.contracts.conversation import ResolvedKnowledgeQuestion
 from app.ai.contracts.meals import CandidateMeal, SubstituteFood
 from app.ai.nlp.config import GROQ_MODEL
+from app.ai.providers.errors import completion_text, raise_groq_failure
 from app.ai.providers.groq import get_client
-
-logger = logging.getLogger(__name__)
 
 
 def call_meal_generation(
@@ -26,11 +24,11 @@ def call_meal_generation(
     profile: dict,
     meal_type: Optional[str],
     language: str,
-) -> Optional[List[dict]]:
+) -> List[dict]:
     """
     Execute the meal-generation LLM call and return a validated list of food dicts.
 
-    Returns None if the call fails or the output fails FoodItem validation.
+    Raises a processing error on provider or output validation failure.
     Validation uses Task 1's FoodItem schema (extra="forbid") — any unknown
     field or disallowed unit is rejected before the list ever reaches USDA.
     """
@@ -51,18 +49,20 @@ def call_meal_generation(
                 },
             },
         )
-        raw = json.loads(response.choices[0].message.content)
+        raw = json.loads(completion_text(response))
         # Validate through CandidateMeal → each FoodItem validated by Pydantic
         validated = CandidateMeal(**raw)
         foods = [f.model_dump() for f in validated.foods]
+        if not foods:
+            raise ValueError("Empty candidate meal")
 
         # Extra unit guard: reject any unit outside the Task 1 vocabulary
         for f in foods:
             if f["unit"] not in ALLOWED_UNITS:
-                return None
+                raise ValueError("Unsupported meal unit")
         return foods
-    except Exception:
-        return None
+    except Exception as exc:
+        raise_groq_failure(exc)
 
 
 def call_rag_answer(
@@ -70,11 +70,11 @@ def call_rag_answer(
     passages: List[str],
     language: str,
     history: list[dict] | None = None,
-) -> Optional[str]:
+) -> str:
     """
     Execute the RAG-answer LLM call and return the response text.
 
-    Returns None on failure.
+    Raises a processing error on provider or output validation failure.
     """
     messages = build_rag_answer_messages(question, passages, language, history)
     try:
@@ -83,9 +83,9 @@ def call_rag_answer(
             messages=messages,
             temperature=0.3,
         )
-        return response.choices[0].message.content.strip()
-    except Exception:
-        return None
+        return completion_text(response)
+    except Exception as exc:
+        raise_groq_failure(exc)
 
 
 def call_food_substitute(
@@ -93,11 +93,11 @@ def call_food_substitute(
     profile: dict,
     language: str,
     context_meal: Optional[List[dict]] = None,
-) -> Optional[dict]:
+) -> dict:
     """
     Execute the food-substitute LLM call and return a single validated FoodItem dict.
 
-    Returns None on failure or validation error.
+    Raises a processing error on provider or output validation failure.
     """
     messages = build_food_substitute_messages(
         forbidden_food, profile, language, context_meal
@@ -116,14 +116,14 @@ def call_food_substitute(
                 },
             },
         )
-        raw = json.loads(response.choices[0].message.content)
+        raw = json.loads(completion_text(response))
         validated = SubstituteFood(**raw)
         food = validated.food.model_dump()
         if food["unit"] not in ALLOWED_UNITS:
-            return None
+            raise ValueError("Unsupported food unit")
         return food
-    except Exception:
-        return None
+    except Exception as exc:
+        raise_groq_failure(exc)
 
 
 def call_full_meal_revision(
@@ -133,12 +133,12 @@ def call_full_meal_revision(
     meal_type: Optional[str],
     language: str,
     issues: List[str],
-) -> Optional[List[dict]]:
+) -> List[dict]:
     """
     LLM revision: regenerate the entire meal acknowledging the current issues.
 
     Used when scale_meal_to_target failed or when protein is the failing check.
-    Returns None on failure.
+    Raises a processing error on provider or output validation failure.
     """
     messages = build_full_meal_revision_messages(
         current_foods, target_calories, profile, meal_type, language, issues
@@ -158,15 +158,17 @@ def call_full_meal_revision(
                 },
             },
         )
-        raw = json.loads(response.choices[0].message.content)
+        raw = json.loads(completion_text(response))
         validated = CandidateMeal(**raw)
         foods = [f.model_dump() for f in validated.foods]
+        if not foods:
+            raise ValueError("Empty candidate meal")
         for f in foods:
             if f["unit"] not in ALLOWED_UNITS:
-                return None
+                raise ValueError("Unsupported meal unit")
         return foods
-    except Exception:
-        return None
+    except Exception as exc:
+        raise_groq_failure(exc)
 
 
 def call_general_chat(
@@ -180,18 +182,15 @@ def call_general_chat(
             messages=messages,
             temperature=0.5,
         )
-        return response.choices[0].message.content.strip()
+        return completion_text(response)
     except Exception as exc:
-        logger.exception("general_chat LLM call failed: %s", exc)
-        if language == "arabic":
-            return "مرحباً! كيف يمكنني مساعدتك؟"
-        return "Hello! How can I help you?"
+        raise_groq_failure(exc)
 
 
 def call_question_resolution(
     question: str, language: str, history: list[dict]
-) -> ResolvedKnowledgeQuestion | None:
-    """Return a resolved question, explicit ambiguity, or None on model failure."""
+) -> ResolvedKnowledgeQuestion:
+    """Return a resolved question or explicit ambiguity; raise on failure."""
     messages = build_question_resolution_messages(question, language, history)
     try:
         response = get_client("rag").chat.completions.create(
@@ -207,9 +206,6 @@ def call_question_resolution(
                 },
             },
         )
-        return ResolvedKnowledgeQuestion.model_validate_json(
-            response.choices[0].message.content
-        )
-    except Exception:
-        logger.exception("Knowledge question resolution failed")
-        return None
+        return ResolvedKnowledgeQuestion.model_validate_json(completion_text(response))
+    except Exception as exc:
+        raise_groq_failure(exc)

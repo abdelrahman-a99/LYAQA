@@ -89,17 +89,14 @@ def test_response_is_a_snapshot_of_the_processed_turn(monkeypatch):
     assert result.to_dict()["status"] == "ready"
 
 
-def test_response_preserves_the_previous_backend_error_fallback(monkeypatch):
+def test_processing_failure_is_not_returned_as_a_successful_reply(monkeypatch):
     def fail(**kwargs):
         raise RuntimeError("Mock failure")
 
     monkeypatch.setattr(orchestrator, "handle", fail)
 
-    result = NutritionAssistant().respond("Hello")
-
-    assert result.response == (
-        "Sorry, something went wrong while processing your message. Please try again."
-    )
+    with pytest.raises(RuntimeError, match="Mock failure"):
+        NutritionAssistant().respond("Hello")
 
 
 @pytest.mark.parametrize("message", ["", "   ", None])

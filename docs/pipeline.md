@@ -89,6 +89,19 @@ density, and household estimates have distinct source labels.
 liquid-density and household approximations in the response. Ordinary lookup
 failures can produce a partial result; if no foods are matched, the flow stops.
 
+USDA HTTP calls pass through `app/ai/retrieval/http.py`. Operational failures
+raise `ProcessingError` and abort the turn; they are not cached and do not
+trigger alternative food generation or candidate fallback. A successful empty
+search, missing detail record, and incomplete nutrients retain their ordinary
+lookup behavior. The backend preserves recognized USDA codes and leaves
+conversation context unchanged after a failed HTTP turn.
+
+Embedding/reranking models and the translation tokenizer/model pair load lazily
+through `app/ai/retrieval/models.py`. Each group has a separate initialization
+lock and is published to the process-local cache only after successful loading.
+Expected loading failures raise `ProcessingError` with
+`retrieval_model_unavailable` (HTTP 503).
+
 ## 5. Meal generation and revision
 
 `handle_meal_recommendation()` prioritizes an explicit calorie target. Otherwise,
@@ -131,7 +144,8 @@ meal counter, not the sum for all meals.
 When history is present, `call_question_resolution()` resolves the current
 request into a standalone search question before retrieval. Its validated output
 contains `question`: text when resolved, or null when a reference is unclear.
-Ambiguity prompts clarification; model or validation failures prompt a retry.
+Ambiguity returns `needs_clarification`; model or output validation failures
+raise a processing error and produce a non-200 HTTP response.
 Neither path calls retrieval. Without history, the original search path is used.
 
 The resolved query goes to the retrieval tool, which delegates to
@@ -145,7 +159,8 @@ returned passages are not each checked against that threshold.
 Successful retrieval and recent history are passed to
 `agent/llm.py: call_rag_answer()`. History supplies conversational context, while
 retrieved passages remain the factual source. Low-confidence
-retrieval, retrieval errors, and answer-generation failure have separate replies.
+retrieval returns `insufficient_knowledge`. Retrieval execution failures and
+answer-generation failures return structured HTTP errors.
 This flow performs no USDA lookup or meal revision. A substitution answer is
 knowledge-based advice; it does not guarantee equivalent calories or macros.
 
@@ -201,8 +216,9 @@ nutritional revision loop in this flow.
 
 On valid edits, the original meal ID is retained and `meals` contains the entire
 supplied group with one updated meal. Other snapshots remain unchanged; the
-whole day is not revalidated. Missing context, ambiguity, failures, and rejected
-edits return empty meal output so the backend retains its previous group.
+whole day is not revalidated. Missing context, ambiguity, food lookup/calculation
+failures, and rejected edits return empty meal output. Model failures return HTTP
+errors. Both preserve the backend's previous group.
 Rejected edits include calculated values and validation reasons in the text.
 
 Selection and change prompts are in `agent/meal_edit_prompts.py`; provider calls
@@ -257,6 +273,6 @@ History reaches NLP parsing, general-chat generation, RAG question resolution,
 RAG answer generation, and meal-edit selection/change generation.
 Service authentication and replay-safe processing remain future work.
 
-HTTP 200 does not certify a valid meal or a successful model call.
+HTTP 200 does not certify a valid meal or complete food retrieval.
 Existing response text and metadata can describe a failure or invalid proposal.
 `/health` does not test keys, model downloads, or providers.

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from app.ai.agent import food_lookup, meal_edit_llm
 from app.ai.agent.flows import meal_edits
 from app.ai.agent.meal_edit_prompts import build_meal_selection_messages
+from app.ai.contracts.errors import ProcessingError
 from app.ai.contracts.meal_edits import MealChanges, MealSelection
 from app.ai.conversation import session as session_module
 from app.ai.conversation.meal_edits import apply_food_changes
@@ -225,6 +226,13 @@ def test_unresolved_or_failed_edits_leave_meals_unchanged(editing, reason):
     response = client.post(
         "/v1/chat", json={"message": "Change it", "meal_context": context}
     )
+
+    if reason in {"selection_error", "changes_error"}:
+        assert response.status_code == 502
+        assert response.json()["error_code"] == "llm_invalid_output"
+        assert lookups == []
+        return
+
     assert response.status_code == 200
     assert response.json()["meals"] == []
     assert response.json()["status"] != "ready"
@@ -295,8 +303,13 @@ def test_provider_outputs_are_validated_and_failures_are_not_ambiguity(monkeypat
     ]
     assert meal_edit_llm.call_edit_output(messages, MealSelection).meal_id is None
     assert meal_edit_llm.call_edit_output(messages, MealChanges).changes == []
-    assert meal_edit_llm.call_edit_output(messages, MealChanges) is None
-    assert meal_edit_llm.call_edit_output(messages, MealSelection) is None
+
+    for schema in (MealChanges, MealSelection):
+        with pytest.raises(ProcessingError) as caught:
+            meal_edit_llm.call_edit_output(messages, schema)
+
+        assert caught.value.code == "llm_invalid_output"
+
     assert calls[0]["response_format"] == {"type": "json_object"}
     assert messages[0]["content"] == "Return JSON"
 

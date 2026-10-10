@@ -52,15 +52,17 @@ def _ensure_loaded() -> None:
     import faiss
     from sentence_transformers import SentenceTransformer
 
-    _index = faiss.read_index(_INDEX_PATH)
+    index = faiss.read_index(_INDEX_PATH)
 
     with open(_CHUNKS_PATH, encoding="utf-8") as f:
-        _chunks = json.load(f)
+        chunks = json.load(f)
 
     # Use the same embedding model that generated the RAG index.
-    _embed_model = SentenceTransformer(
+    embed_model = SentenceTransformer(
         "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     )
+
+    _index, _chunks, _embed_model = index, chunks, embed_model
 
     logger.info("RAG index loaded: %d chunks", len(_chunks))
 
