@@ -10,8 +10,10 @@ from app.ai.agent.prompts import (
     build_full_meal_revision_messages,
     build_general_chat_messages,
     build_meal_generation_messages,
+    build_question_resolution_messages,
     build_rag_answer_messages,
 )
+from app.ai.contracts.conversation import ResolvedKnowledgeQuestion
 from app.ai.contracts.meals import CandidateMeal, SubstituteFood
 from app.ai.nlp.config import GROQ_MODEL
 from app.ai.providers.groq import get_client
@@ -63,13 +65,18 @@ def call_meal_generation(
         return None
 
 
-def call_rag_answer(question: str, passages: List[str], language: str) -> Optional[str]:
+def call_rag_answer(
+    question: str,
+    passages: List[str],
+    language: str,
+    history: list[dict] | None = None,
+) -> Optional[str]:
     """
     Execute the RAG-answer LLM call and return the response text.
 
     Returns None on failure.
     """
-    messages = build_rag_answer_messages(question, passages, language)
+    messages = build_rag_answer_messages(question, passages, language, history)
     try:
         response = get_client("rag").chat.completions.create(
             model=GROQ_MODEL,
@@ -162,9 +169,11 @@ def call_full_meal_revision(
         return None
 
 
-def call_general_chat(message: str, language: str) -> str:
+def call_general_chat(
+    message: str, language: str, history: list[dict] | None = None
+) -> str:
     """Plain LLM reply with no tools — no numeric data invented."""
-    messages = build_general_chat_messages(message, language)
+    messages = build_general_chat_messages(message, language, history)
     try:
         response = get_client("rag").chat.completions.create(
             model=GROQ_MODEL,
@@ -177,3 +186,30 @@ def call_general_chat(message: str, language: str) -> str:
         if language == "arabic":
             return "مرحباً! كيف يمكنني مساعدتك؟"
         return "Hello! How can I help you?"
+
+
+def call_question_resolution(
+    question: str, language: str, history: list[dict]
+) -> ResolvedKnowledgeQuestion | None:
+    """Return a resolved question, explicit ambiguity, or None on model failure."""
+    messages = build_question_resolution_messages(question, language, history)
+    try:
+        response = get_client("rag").chat.completions.create(
+            model=GROQ_MODEL,
+            messages=messages,
+            temperature=0,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "resolved_knowledge_question",
+                    "strict": True,
+                    "schema": ResolvedKnowledgeQuestion.model_json_schema(),
+                },
+            },
+        )
+        return ResolvedKnowledgeQuestion.model_validate_json(
+            response.choices[0].message.content
+        )
+    except Exception:
+        logger.exception("Knowledge question resolution failed")
+        return None
