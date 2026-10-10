@@ -9,14 +9,15 @@ from typing import Any, Dict, List, Optional
 class AgentState:
     """Mutable state shared by the orchestrator and its tools and flows.
 
-    reset_turn preserves session_id and user_profile while clearing the
-    current query, targets, intermediate results, and revision history.
+    reset_turn preserves session_id, user_profile, and supplied meal_context.
+    It clears the current query, targets, intermediate results, and revision history.
     Targets are populated when calculated for the current turn.
     Revision history records meal-validation attempts during that turn.
     """
 
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     user_profile: Dict[str, Any] = field(default_factory=dict)
+    meal_context: List[Dict] = field(default_factory=list)
     raw_query: str = ""
     intent: str = ""
     status: str = ""
@@ -29,10 +30,11 @@ class AgentState:
     revision_count: int = 0
     revision_history: List[Dict] = field(default_factory=list)
     final_answer: str = ""
+    meals: List[Dict] = field(default_factory=list)
 
     def reset_turn(self) -> None:
         """
-        Clear all per-turn fields while keeping session_id and user_profile.
+        Clear per-turn outputs; keep identity, profile, and supplied meal context.
 
         Call this at the start of each new orchestrator turn so stale
         intermediate data from the previous turn cannot bleed through.
@@ -49,3 +51,4 @@ class AgentState:
         self.revision_count = 0
         self.revision_history = []
         self.final_answer = ""
+        self.meals = []

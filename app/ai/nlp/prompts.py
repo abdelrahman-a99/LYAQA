@@ -32,6 +32,14 @@ INTENT TAXONOMY (choose exactly one):
 7. fitness_nutrition_question → user asks fitness/exercise nutrition advice ("what should I eat before workout?", "أكل إيه قبل التمرين؟")
 8. update_profile             → user provides personal metrics (age, DOB, weight, height, goal, allergies, activity level)
 9. general_chat               → greetings, thank you, off-topic, chit-chat
+10. meal_edit                 → explicitly change a PREVIOUS meal: replace/add/remove a food, change its quantity, or change that meal's calorie target ("Replace rice in my lunch with pasta", "خلي الغداء اللي اقترحته 500 سعرة", "بدّل الرز في الوجبة دي").
+
+MEAL EDIT ROUTING:
+- Use meal_edit only for an instruction to modify an existing meal. It does not require a complete profile.
+- A new meal request remains meal_recommendation. General substitution advice remains food_substitution.
+- Questions about a previous meal do not automatically authorize editing it.
+- Extract target_calories only when the CURRENT message explicitly supplies a new calorie target. Never copy a historical target.
+- Extract meal_type only when the CURRENT message explicitly names it for meal_edit; otherwise use null.
 
 CONVERSATION CONTEXT:
 Messages after the examples may contain ordinary conversation replies or previous extraction JSON.
@@ -46,7 +54,7 @@ OUTPUT RULES:
 4. meal_type: "breakfast" | "lunch" | "dinner" | "snack" | "all_day" | null
 5. target_calories: extract numeric calories if user specified a budget (e.g. 400.0 for "400-calorie breakfast").
 6. requested_substitution: extract the food being substituted when intent is food_substitution (e.g. "eggs").
-7. foods: list of food items. MUST be [] for update_profile, fitness_nutrition_question, general_chat, daily_plan, meal_recommendation, and food_substitution.
+7. foods: list of food items. MUST be [] for update_profile, fitness_nutrition_question, general_chat, daily_plan, meal_recommendation, meal_edit, and food_substitution.
 8. profile_data: return the FULL object whenever the message contains ANY profile information —
    goal, restriction, allergy, preferred food, weight, height, birth_date, gender, or activity level —
    REGARDLESS of which intent you picked. Only return null when the message truly contains

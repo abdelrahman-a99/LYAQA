@@ -1,6 +1,6 @@
 import logging
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 logger = logging.getLogger(__name__)
 
@@ -13,20 +13,25 @@ class AssistantResponse:
     language: str
     profile: dict
     revision_count: int
+    meals: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
 class NutritionAssistant:
-    """Run an assistant with optional caller-supplied profile and history.
+    """Run an assistant with caller-supplied profile, history, and meal context.
 
     Each HTTP request uses a fresh instance initialized with caller-supplied
     context. This class does not persist conversations between requests.
     """
 
     def __init__(
-        self, *, profile: dict | None = None, history: list[dict] | None = None
+        self,
+        *,
+        profile: dict | None = None,
+        history: list[dict] | None = None,
+        meal_context: list[dict] | None = None,
     ):
         self.reset()
 
@@ -42,6 +47,8 @@ class NutritionAssistant:
 
         if history is not None:
             self.nlp_session.history = deepcopy(history)
+
+        self.agent_state.meal_context = deepcopy(meal_context or [])
 
     def reset(self) -> None:
         from app.ai.agent.state import AgentState
@@ -74,6 +81,7 @@ class NutritionAssistant:
                 state=self.agent_state,
             )
         except Exception:
+            self.agent_state.meals = []
             logger.exception(
                 "Agent failed for session %s",
                 self.agent_state.session_id,
@@ -90,4 +98,5 @@ class NutritionAssistant:
             language=self.nlp_session.language or "english",
             profile=deepcopy(self.agent_state.user_profile or {}),
             revision_count=int(self.agent_state.revision_count or 0),
+            meals=deepcopy(self.agent_state.meals),
         )

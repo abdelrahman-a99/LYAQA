@@ -11,6 +11,7 @@ INTENT_TYPES = Literal[
     "calculate_macros",  # macro breakdown request
     "food_nutrition",  # nutrition query about a single food
     "meal_recommendation",  # single meal suggestion with constraints
+    "meal_edit",  # change a previously suggested meal
     "daily_plan",  # full day/multi-day plan
     "food_substitution",  # substitutes for X
     "fitness_nutrition_question",  # workout/sports nutrition (RAG trigger)
