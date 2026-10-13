@@ -63,8 +63,16 @@ def build() -> None:
     # model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
     # Multilingual model — handles Arabic + English queries equally well.
+    from app.ai.runtime import configuration_error, get_device, get_runtime
+
+    if get_runtime() == "zerogpu":
+        raise configuration_error(
+            "Build RAG assets offline in cpu or cuda mode before deployment."
+        )
+
     model = SentenceTransformer(
-        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        device=get_device(),
     )
 
     print("Loading knowledge-base chunks...")

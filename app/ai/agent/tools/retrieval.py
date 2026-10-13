@@ -2,6 +2,7 @@ import time
 
 from app.ai.agent.tools.common import _envelope, _log
 from app.ai.retrieval.service import get_food_nutrition
+from app.ai.contracts.errors import ProcessingError
 
 
 def get_nutrition(food_name_en: str, food_name_original: str, intent: str = "") -> dict:
@@ -49,6 +50,8 @@ def retrieve_fitness_knowledge(query: str, intent: str = "") -> dict:
             duration,
         )
         return result
+    except ProcessingError:
+        raise
     except Exception as exc:
         duration = (time.perf_counter() - t0) * 1000
         _log(

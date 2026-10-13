@@ -96,6 +96,10 @@ docker run -d --init --name nutrition-ai --env-file .env -p 127.0.0.1:8001:7860 
 
 ## Hosted deployment
 
+For Hugging Face ZeroGPU, use the headless Gradio entry point and configuration
+in [runtime modes](runtime_modes.md). This Docker image is the CPU deployment
+profile; ZeroGPU does not run this Dockerfile.
+
 Select the hosting platform after local container verification. Configure
 Groq and USDA keys using the platform's runtime secrets and set the backend's
 AI base URL to the hosted HTTPS address.

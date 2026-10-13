@@ -2,7 +2,8 @@
 
 FROM python:3.12-slim-bookworm
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
+ENV NUTRITION_AI_RUNTIME=cpu \
+    PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     USE_TF=0 \
@@ -26,7 +27,7 @@ WORKDIR /opt/nutrition-ai
 
 COPY requirements.txt ./requirements.txt
 
-RUN python -m pip install --no-cache-dir "torch==2.4.1" \
+RUN python -m pip install --no-cache-dir "torch==2.8.0" \
         --index-url https://download.pytorch.org/whl/cpu \
     && python -m pip install --no-cache-dir -r requirements.txt \
     && python -m pip check
