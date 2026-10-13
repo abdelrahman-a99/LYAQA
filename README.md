@@ -3,8 +3,10 @@ title: LYAQA Nutrition AI
 emoji: 🥗
 colorFrom: blue
 colorTo: green
-sdk: docker
-app_port: 7860
+sdk: gradio
+sdk_version: 6.15.0
+python_version: 3.12
+app_file: space_app.py
 base_path: /docs
 short_description: Arabic and English nutrition AI service
 ---
@@ -30,6 +32,7 @@ Run them from the repository root.
 
 ```powershell
 py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install "torch==2.8.0" --index-url https://download.pytorch.org/whl/cpu
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
 
@@ -54,10 +57,22 @@ Keep credentials in a root `.env` file or set process environment variables.
 | `USDA_API_KEY` | Key for USDA requests. |
 | `USDA_BASE_URL` | Optional override of `https://api.nal.usda.gov/fdc/v1`. |
 | `NUTRITION_AI_RAG_DIR` | Optional directory containing matching index and chunks files. |
+| `NUTRITION_AI_RUNTIME` | `cpu`, `cuda`, or `zerogpu`; requires restart. |
+| `HF_TOKEN` | ZeroGPU queue caller identity; keep secret. |
 
 The HTTP service loads `.env` at startup. Existing process environment
 values win. Retrieval models load on demand and may download weights
 on first use.
+
+## Runtime modes
+
+Set `NUTRITION_AI_RUNTIME` before starting the process: `cpu` (default),
+`cuda` (persistent NVIDIA GPU), or `zerogpu` (hosted, queued GPU functions).
+The setting does not install a PyTorch wheel or change Space hardware.
+CUDA and ZeroGPU failures never trigger an implicit CPU fallback.
+
+For dependency installation, headless Gradio hosting, quotas, and Space settings,
+see [runtime modes](docs/runtime_modes.md).
 
 ## Run
 
@@ -189,8 +204,8 @@ retrying. Failed HTTP turns leave the backend's saved context unchanged.
 ## Verification
 
 ```powershell
-.\.venv\Scripts\python.exe -m ruff check app evaluation scripts tests
-.\.venv\Scripts\python.exe -m ruff format --check app evaluation scripts tests
+.\.venv\Scripts\python.exe -m ruff check app evaluation scripts tests space_app.py
+.\.venv\Scripts\python.exe -m ruff format --check app evaluation scripts tests space_app.py
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 

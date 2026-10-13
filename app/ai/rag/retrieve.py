@@ -19,6 +19,9 @@ import numpy as np
 
 from app.paths import get_rag_dir
 
+from app.ai.inference import run_inference
+from app.ai.retrieval.runtime import get_device
+
 logger = logging.getLogger(__name__)
 
 RAG_SIMILARITY_THRESHOLD = 0.35  # Minimum best-result similarity for retrieval.
@@ -59,7 +62,8 @@ def _ensure_loaded() -> None:
 
     # Use the same embedding model that generated the RAG index.
     embed_model = SentenceTransformer(
-        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        device=get_device(),
     )
 
     _index, _chunks, _embed_model = index, chunks, embed_model
@@ -86,8 +90,9 @@ def retrieve_fitness_knowledge(query: str, top_k: int = 3) -> dict:
             "error_code": "index_not_found",
         }
 
-    query_vec = _embed_model.encode([query], normalize_embeddings=True).astype(
-        np.float32
+    query_vec = np.asarray(
+        run_inference("rag_embed", {"text": query}),
+        dtype=np.float32,
     )
 
     scores, indices = _index.search(query_vec, top_k)

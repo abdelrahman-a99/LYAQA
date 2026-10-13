@@ -9,10 +9,7 @@ import numpy as np
 from nltk.stem import SnowballStemmer
 from rapidfuzz import fuzz
 
-from app.ai.retrieval.models import (
-    _MODELS,
-    _ensure_embedding_models,
-)
+from app.ai.inference import run_inference
 
 
 def semantic_retrieve(
@@ -30,20 +27,11 @@ def semantic_retrieve(
         if generic:
             candidates = generic
 
-    _ensure_embedding_models()
-    bi_encoder = _MODELS["bi_encoder"]
-    util = _MODELS["util"]
-
     descriptions = [item["description"] for item in candidates]
-
-    query_embedding = bi_encoder.encode(
-        query, convert_to_tensor=True, normalize_embeddings=True
+    similarities = run_inference(
+        "semantic",
+        {"text": query, "descriptions": descriptions},
     )
-    description_embeddings = bi_encoder.encode(
-        descriptions, convert_to_tensor=True, normalize_embeddings=True
-    )
-
-    similarities = util.cos_sim(query_embedding, description_embeddings)[0]
 
     ranked_candidates = []
     for result, score in zip(candidates, similarities):
@@ -294,15 +282,20 @@ def dynamic_rerank(query: str, candidates: List[dict]) -> List[dict]:
     if not candidates:
         return []
 
-    _ensure_embedding_models()
-    cross_encoder = _MODELS["cross_encoder"]
-
     query_token_list = normalize_rank_tokens(query)
     query_tokens = set(query_token_list)
     normalized_query = normalize_match_text(query)
 
-    pairs = [[query, c["description"]] for c in candidates]
-    cross_raw_scores = np.asarray(cross_encoder.predict(pairs), dtype=float).reshape(-1)
+    cross_raw_scores = np.asarray(
+        run_inference(
+            "rerank",
+            {
+                "text": query,
+                "descriptions": [c["description"] for c in candidates],
+            },
+        ),
+        dtype=float,
+    ).reshape(-1)
     cross_scores = 1.0 / (1.0 + np.exp(-np.clip(cross_raw_scores, -20, 20)))
 
     semantic_raw_scores = np.asarray(

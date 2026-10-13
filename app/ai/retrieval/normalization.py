@@ -6,11 +6,7 @@ import re
 
 from app.ai.common.text import normalize_arabic_text
 from app.ai.retrieval.cache import TRANSLATION_CACHE
-from app.ai.retrieval.models import (
-    _MODELS,
-    _ensure_translation_model,
-)
-from app.ai.retrieval.runtime import get_device
+from app.ai.inference import run_inference
 
 
 def clean_food_text(text):
@@ -97,20 +93,7 @@ def translate_arabic_to_english(text: str) -> str:
     if cache_key in TRANSLATION_CACHE:
         return TRANSLATION_CACHE[cache_key]
 
-    _ensure_translation_model()
-
-    tok = _MODELS["translation_tokenizer"]
-    mdl = _MODELS["translation_model"]
-
-    inputs = tok(text, return_tensors="pt", padding=True, truncation=True)
-    inputs = {k: v.to(get_device()) for k, v in inputs.items()}
-
-    import torch
-
-    with torch.no_grad():
-        translated_tokens = mdl.generate(**inputs, max_length=100)
-
-    translation = tok.decode(translated_tokens[0], skip_special_tokens=True)
+    translation = run_inference("translate", {"text": text})
     translation = clean_food_text(translation).lower()
 
     TRANSLATION_CACHE[cache_key] = translation
